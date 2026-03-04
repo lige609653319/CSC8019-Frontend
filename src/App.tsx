@@ -6,6 +6,7 @@ import DashboardPage from './components/dashboard/DashboardPage';
 import UserPage from './components/user/UserPage';
 import OrderPage from './components/order/OrderPage';
 import StorePage from './components/store/StorePage';
+import MenuPage from './components/menu/MenuPage';
 
 const { Sider, Content } = Layout;
 
@@ -22,6 +23,8 @@ function App() {
         return <OrderPage />;
       case 'store':
         return <StorePage />;
+      case 'menu':
+        return <MenuPage />;
       default:
         return <DashboardPage />;
     }
