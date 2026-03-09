@@ -6,7 +6,9 @@ import {
   SettingOutlined,
   LogoutOutlined,
   ShoppingCartOutlined,
-  ShopOutlined
+  ShopOutlined,
+  GiftOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 
 interface SidebarProps {
@@ -20,6 +22,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange }) => {
     { key: 'order', icon: <ShoppingCartOutlined />, label: 'Order' },
     { key: 'user', icon: <UserOutlined />, label: 'User' },
     { key: 'store', icon: <ShopOutlined />, label: 'Store' },
+    { key: 'loyalty-balance', icon: <GiftOutlined />, label: 'Loyalty Balance' },
+    { key: 'loyalty-history', icon: <HistoryOutlined />, label: 'Redemption History' },
     { key: 'analytics', icon: <BarChartOutlined />, label: 'Analytics' },
     { key: 'settings', icon: <SettingOutlined />, label: 'Settings' },
   ];

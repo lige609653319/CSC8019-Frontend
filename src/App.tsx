@@ -6,6 +6,8 @@ import DashboardPage from './components/dashboard/DashboardPage';
 import UserPage from './components/user/UserPage';
 import OrderPage from './components/order/OrderPage';
 import StorePage from './components/store/StorePage';
+import LoyaltyBalancePage from './components/layout/LoyaltyBalancePage.tsx';
+import RedemptionHistoryPage from './components/layout/RedemptionHistoryPage.tsx';
 
 const { Sider, Content } = Layout;
 
@@ -22,6 +24,10 @@ function App() {
         return <OrderPage />;
       case 'store':
         return <StorePage />;
+      case 'loyalty-balance':
+        return <LoyaltyBalancePage />;
+      case 'loyalty-history':
+        return <RedemptionHistoryPage />;
       default:
         return <DashboardPage />;
     }
