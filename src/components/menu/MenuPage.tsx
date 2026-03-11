@@ -2,173 +2,201 @@ import { useState, useEffect } from 'react';
 import { 
   Card, Table, message, Typography, Space, Tag, 
   Button, Popconfirm, Modal, Form, Input, 
-  InputNumber, Select, Switch 
+  InputNumber, Select, Switch, Row, Col, Divider
 } from 'antd';
 import { 
-  CoffeeOutlined, DeleteOutlined, EditOutlined, PlusOutlined 
+  CoffeeOutlined, DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined, ShopOutlined
 } from '@ant-design/icons';
 
 const { Title } = Typography;
 
-// Define the shape of the data expected from the backend
+// Data structure for Menu and SKU
 interface MenuItem {
   id: number;
   name: string;
   category: string;
-  regularPrice: number;
-  largePrice: number;
+  skus: MenuSku[];
+  store: { id: number }; 
+}
+
+interface MenuSku {
+  id?: number; 
+  size: string;
+  price: number;
   stock: number;
   isAvailable: boolean;
 }
 
 const MenuPage = () => {
-  // --- States ---
+  // State for data and loading
   const [menuList, setMenuList] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   
-  // Modal states
+  // Default store list if backend fails
+  const [storeList, setStoreList] = useState<any[]>([
+    { id: 1, name: "Whistlestop Coffee Hut Updated" },
+    { id: 2, name: "Metro Coffee Express" },
+    { id: 3, name: "City Beans" },
+    { id: 4, name: "Harbour Brew Point" },
+    { id: 5, name: "Map Valid Cafe" },
+    { id: 6, name: "Contact Test Cafe Updated" }
+  ]);
+  
+  const [searchForm] = Form.useForm(); // Form for search bar
+  const [form] = Form.useForm();       // Form for Add/Edit modal
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
-  const [form] = Form.useForm();
 
-  // --- API Calls ---
+  // Get all stores from backend
+  const fetchStores = async () => {
+    try {
+      const response = await fetch('http://localhost:8080/api/store/list'); 
+      const res = await response.json();
+      if (res.code === 200 && Array.isArray(res.data) && res.data.length > 0) {
+        setStoreList(res.data);
+      }
+    } catch (error) {
+      console.log("Use default store list");
+    }
+  };
 
-  // 1. Fetch List
+  // Get menu data with search filters
   const fetchMenuData = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8080/api/menu/list'); 
+      const values = searchForm.getFieldsValue();
+      const queryParams: any = {
+        storeId: values.storeId || 1,
+        name: values.name,
+        category: values.category
+      };
+      
+      // Remove empty parameters
+      Object.keys(queryParams).forEach(key => {
+        if (!queryParams[key]) delete queryParams[key];
+      });
+
+      const query = new URLSearchParams(queryParams).toString();
+      const response = await fetch(`http://localhost:8080/api/menu/search?${query}`); 
       if (response.ok) {
         const res = await response.json(); 
-        setMenuList(res.data || []); 
-      } else {
-        message.error('Failed to fetch menu data!');
+        setMenuList(res.data || []);
       }
     } catch (error) {
-      message.error('Network error. Check if backend is running.');
+      message.error('Load menu error');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchMenuData();
+  // Run when page starts
+  useEffect(() => { 
+    searchForm.setFieldsValue({ storeId: 1 });
+    const init = async () => {
+      await fetchStores();
+      fetchMenuData();
+    };
+    init();
   }, []);
 
-  // 2. Delete Item
+  // Delete one item
   const handleDelete = async (id: number) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/menu/${id}`, {
-        method: 'DELETE',
-      });
+      const response = await fetch(`http://localhost:8080/api/menu/${id}`, { method: 'DELETE' });
       if (response.ok) {
-        message.success('Item deleted successfully');
-        setMenuList(prev => prev.filter(item => item.id !== id));
-      } else {
-        message.error('Failed to delete item');
+        message.success('Delete success');
+        fetchMenuData();
       }
-    } catch (error) {
-      message.error('Network error during deletion');
-    }
+    } catch (error) { message.error('Delete error'); }
   };
 
-  // 3. Create or Update Item
+  // Save data (Add or Update)
   const handleFormSubmit = async (values: any) => {
     const isEditing = !!editingItem;
-    const url = isEditing 
-      ? `http://localhost:8080/api/menu/${editingItem.id}` 
-      : 'http://localhost:8080/api/menu/create';
-    
-    // Use PATCH for updates (Partial), POST for creation
-    const method = isEditing ? 'PATCH' : 'POST';
+    const currentStoreId = searchForm.getFieldValue('storeId');
 
     try {
-      const response = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      });
+      if (isEditing && editingItem) {
+        // Update Menu name and category
+        await fetch(`http://localhost:8080/api/menu/${editingItem.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: values.name, category: values.category }),
+        });
 
-      if (response.ok) {
-        message.success(`${isEditing ? 'Updated' : 'Created'} successfully!`);
-        setIsModalOpen(false);
-        fetchMenuData(); // Refresh the list
+        // Update each SKU price and stock
+        for (const sku of values.skus) {
+          if (sku.id) {
+            await fetch(`http://localhost:8080/api/menu/sku/${sku.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(sku),
+            });
+          }
+        }
+        message.success('Update success');
       } else {
-        message.error('Operation failed');
+        // Create new menu
+        const payload = { ...values, store: { id: currentStoreId } };
+        await fetch(`http://localhost:8080/api/menu/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        message.success('Create success');
       }
-    } catch (error) {
-      message.error('Network error during submission');
-    }
+
+      setIsModalOpen(false);
+      fetchMenuData();
+    } catch (error) { message.error('Save error'); }
   };
 
-  // --- Modal Helpers ---
-
-  const openAddModal = () => {
-    setEditingItem(null);
-    form.resetFields();
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (record: MenuItem) => {
-    setEditingItem(record);
-    form.setFieldsValue(record);
-    setIsModalOpen(true);
-  };
-
-  // --- Table Configuration ---
+  // Table columns definition
   const columns = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
     { title: 'Name', dataIndex: 'name', key: 'name' },
     { 
       title: 'Category', 
       dataIndex: 'category', 
-      key: 'category',
-      render: (cat: string) => <Tag color="blue">{cat}</Tag> 
+      render: (cat: string) => <Tag color={cat === 'COFFEE' ? 'orange' : 'blue'}>{cat}</Tag>
     },
     { 
       title: 'Regular Price', 
-      dataIndex: 'regularPrice', 
-      key: 'regularPrice',
-      render: (val: number) => `£${val?.toFixed(2) || '0.00'}` 
+      render: (_: any, record: MenuItem) => {
+        const sku = record.skus?.find(s => s.size === 'REGULAR');
+        return sku ? `£${sku.price.toFixed(2)}` : '-';
+      }
     },
     { 
       title: 'Large Price', 
-      dataIndex: 'largePrice', 
-      key: 'largePrice',
-      render: (val: number) => val ? `£${val.toFixed(2)}` : '-' 
+      render: (_: any, record: MenuItem) => {
+        const sku = record.skus?.find(s => s.size === 'LARGE');
+        return sku ? `£${sku.price.toFixed(2)}` : '-';
+      }
     },
-    { title: 'Stock', dataIndex: 'stock', key: 'stock' },
+    { 
+      title: 'Total Stock', 
+      render: (_: any, record: MenuItem) => record.skus?.reduce((sum, s) => sum + s.stock, 0) || 0
+    },
     { 
       title: 'Status', 
-      dataIndex: 'isAvailable', 
-      key: 'isAvailable',
-      render: (isAvailable: boolean) => (
-        <Tag color={isAvailable ? 'green' : 'red'}>
-          {isAvailable ? 'Available' : 'Sold Out'}
-        </Tag>
-      )
+      render: (_: any, record: MenuItem) => {
+        const avail = record.skus?.some(s => s.isAvailable && s.stock > 0);
+        return <Tag color={avail ? 'green' : 'red'}>{avail ? 'Available' : 'Sold Out'}</Tag>;
+      }
     },
     {
       title: 'Action',
-      key: 'action',
       render: (_: any, record: MenuItem) => (
-        <Space size="small">
-          <Button 
-            type="link" 
-            icon={<EditOutlined />} 
-            onClick={() => openEditModal(record)}
-          >
-            Edit
-          </Button>
-          <Popconfirm
-            title="Delete item?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button type="link" danger icon={<DeleteOutlined />}>
-              Delete
-            </Button>
+        <Space>
+          <Button type="link" icon={<EditOutlined />} onClick={() => {
+            setEditingItem(record);
+            form.setFieldsValue(record);
+            setIsModalOpen(true);
+          }}>Edit</Button>
+          <Popconfirm title="Delete this?" onConfirm={() => handleDelete(record.id)}>
+            <Button type="link" danger icon={<DeleteOutlined />}>Delete</Button>
           </Popconfirm>
         </Space>
       ),
@@ -178,68 +206,120 @@ const MenuPage = () => {
   return (
     <div style={{ padding: '24px' }}>
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        {/* Header Section */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Title level={3} style={{ margin: 0 }}><CoffeeOutlined /> Menu Management</Title>
-          <Button type="primary" icon={<PlusOutlined />} onClick={openAddModal}>
-            Add
-          </Button>
-        </div>
+        <Title level={3}><CoffeeOutlined /> Menu Management</Title>
 
-        {/* Table Section */}
+        {/* Search section */}
+        <Card size="small">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Form form={searchForm} layout="inline" onFinish={fetchMenuData}>
+              {/* Store select */}
+              <Form.Item name="storeId" label={<span><ShopOutlined /> Store</span>}>
+                <Select style={{ width: 280 }} onChange={() => fetchMenuData()}>
+                  {storeList.map(s => (
+                    <Select.Option key={s.id} value={s.id}>{s.name}</Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+              
+              {/* Name search */}
+              <Form.Item name="name" label="Name">
+                <Input placeholder="Search name" allowClear autoComplete="off" />
+              </Form.Item>
+              
+              {/* Category select */}
+              <Form.Item name="category" label="Category">
+                <Select placeholder="All" allowClear style={{ width: 120 }}>
+                  <Select.Option value="COFFEE">COFFEE</Select.Option>
+                  <Select.Option value="CHOCOLATE">CHOCOLATE</Select.Option>
+                  <Select.Option value="WATER">WATER</Select.Option>
+                </Select>
+              </Form.Item>
+
+              <Form.Item>
+                <Button type="primary" icon={<SearchOutlined />} htmlType="submit">Search</Button>
+              </Form.Item>
+            </Form>
+
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => {
+              setEditingItem(null);
+              form.resetFields();
+              form.setFieldsValue({ 
+                skus: [
+                  {size:'REGULAR',price:0,stock:0,isAvailable:true},
+                  {size:'LARGE',price:0,stock:0,isAvailable:true}
+                ] 
+              });
+              setIsModalOpen(true);
+            }}>Add Product</Button>
+          </div>
+        </Card>
+
+        {/* Data table */}
         <Card bordered={false} styles={{ body: { padding: 0 } }}>
-          <Table 
-            columns={columns} 
-            dataSource={menuList} 
-            loading={loading}
-            rowKey="id" 
-          />
+          <Table columns={columns} dataSource={menuList} loading={loading} rowKey="id" />
         </Card>
       </Space>
 
-      {/* Add/Edit Modal */}
+      {/* Add and Edit Modal */}
       <Modal
-        title={editingItem ? "Edit Menu Item" : "Add New Menu Item"}
+        title={editingItem ? "Edit Product" : "Add Product"}
         open={isModalOpen}
         onOk={() => form.submit()}
         onCancel={() => setIsModalOpen(false)}
-        okText="Submit"
+        width={650}
         destroyOnClose
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleFormSubmit}
-          initialValues={{ isAvailable: true, stock: 0 }}
-        >
-          <Form.Item name="name" label="Item Name" rules={[{ required: true, message: 'Please enter name' }]}>
-            <Input placeholder="e.g. Latte" />
-          </Form.Item>
+        <Form form={form} layout="vertical" onFinish={handleFormSubmit}>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="name" label="Name" rules={[{required:true}]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="category" label="Category" rules={[{required:true}]}>
+                <Select>
+                  <Select.Option value="COFFEE">COFFEE</Select.Option>
+                  <Select.Option value="CHOCOLATE">CHOCOLATE</Select.Option>
+                  <Select.Option value="WATER">WATER</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
 
-          <Form.Item name="category" label="Category" rules={[{ required: true }]}>
-            <Select placeholder="Select a category">
-              <Select.Option value="COFFEE">COFFEE</Select.Option>
-              <Select.Option value="CHOCOLATE">CHOCOLATE</Select.Option>
-              <Select.Option value="WATER">WATER</Select.Option>
-            </Select>
-          </Form.Item>
+          <Divider plain>Price and Stock</Divider>
+          
+          <Form.List name="skus">
+            {(fields) => (
+              <>
+                {fields.map(({ key, name, ...restField }) => (
+                  <Card size="small" key={key} style={{ marginBottom: 12 }} title={form.getFieldValue(['skus', name, 'size'])}>
+                    {/* Hidden ID for update */}
+                    <Form.Item {...restField} name={[name, 'id']} hidden><Input /></Form.Item>
+                    <Form.Item {...restField} name={[name, 'size']} hidden><Input /></Form.Item>
 
-          <Space size="large">
-            <Form.Item name="regularPrice" label="Regular Price (£)" rules={[{ required: true }]}>
-              <InputNumber min={0} step={0.1} precision={2} />
-            </Form.Item>
-            <Form.Item name="largePrice" label="Large Price (£)">
-              <InputNumber min={0} step={0.1} precision={2} />
-            </Form.Item>
-          </Space>
-
-          <Form.Item name="stock" label="Stock Quantity">
-            <InputNumber min={0} style={{ width: '100%' }} />
-          </Form.Item>
-
-          <Form.Item name="isAvailable" label="Is Available" valuePropName="checked">
-            <Switch />
-          </Form.Item>
+                    <Row gutter={16}>
+                      <Col span={8}>
+                        <Form.Item {...restField} name={[name, 'price']} label="Price">
+                          <InputNumber min={0} precision={2} style={{ width: '100%' }} />
+                        </Form.Item>
+                      </Col>
+                      <Col span={8}>
+                        <Form.Item {...restField} name={[name, 'stock']} label="Stock">
+                          <InputNumber min={0} style={{ width: '100%' }} />
+                        </Form.Item>
+                      </Col>
+                      <Col span={8}>
+                        <Form.Item {...restField} name={[name, 'isAvailable']} valuePropName="checked" label="Available">
+                          <Switch />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                  </Card>
+                ))}
+              </>
+            )}
+          </Form.List>
         </Form>
       </Modal>
     </div>
