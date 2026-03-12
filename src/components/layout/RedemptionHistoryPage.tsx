@@ -21,7 +21,7 @@ const RedemptionHistoryPage: React.FC = () => {
         const status = error?.response?.status;
         const msg = error?.response?.data?.message;
         if (status === 401) setError('Unauthorized. Please log in.');
-        else if (status === 403) setError('Access denied. Staff role required.');
+        else if (status === 403) setError('403 Forbidden');
         else if (msg) setError(msg);
         else if (error?.message === 'Network Error' || !error?.response) setError('Cannot reach server. Is the backend running on port 8080?');
         else setError('Failed to load redemption history.');

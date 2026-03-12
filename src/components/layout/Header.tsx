@@ -1,9 +1,35 @@
-import { Layout, Input, Badge, Avatar, Space } from 'antd';
-import { BellOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons';
+import { Layout, Input, Badge, Avatar, Space, Dropdown, MenuProps } from 'antd';
+import { BellOutlined, SearchOutlined, UserOutlined, LogoutOutlined } from '@ant-design/icons';
 
 const { Header: AntHeader } = Layout;
 
-const Header = () => {
+interface HeaderProps {
+  onLogout?: () => void;
+  user?: {
+    username: string;
+    icon?: string;
+  } | null;
+}
+
+const Header: React.FC<HeaderProps> = ({ onLogout, user }) => {
+  const items: MenuProps['items'] = [
+    {
+      key: 'profile',
+      label: 'Personal Profile',
+      icon: <UserOutlined />,
+    },
+    {
+      type: 'divider',
+    },
+    {
+      key: 'logout',
+      label: 'Logout',
+      icon: <LogoutOutlined />,
+      danger: true,
+      onClick: onLogout,
+    },
+  ];
+
   return (
     <AntHeader style={styles.header}>
       <Input
@@ -16,15 +42,22 @@ const Header = () => {
           <Badge count={5} size="small">
             <BellOutlined style={styles.icon} />
           </Badge>
-          <div style={styles.user}>
-            <Avatar icon={<UserOutlined />} style={styles.avatar} />
-            <span style={styles.userName}>Alex Johnson</span>
-          </div>
+          <Dropdown menu={{ items }} placement="bottomRight" arrow>
+            <div style={styles.user}>
+              <Avatar 
+                src={user?.icon} 
+                icon={!user?.icon && <UserOutlined />} 
+                style={styles.avatar} 
+              />
+              <span style={styles.userName}>{user?.username || 'Loading...'}</span>
+            </div>
+          </Dropdown>
         </Space>
       </div>
     </AntHeader>
   );
 };
+
 
 const styles: Record<string, React.CSSProperties> = {
   header: {
