@@ -14,9 +14,10 @@ import {
 interface SidebarProps {
   currentView: string;
   onViewChange: (view: string) => void;
+  onLogout?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onLogout }) => {
   const menuItems = [
     { key: 'dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
     { key: 'order', icon: <ShoppingCartOutlined />, label: 'Order' },
@@ -45,6 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange }) => {
           mode="inline"
           selectable={false}
           style={styles.menu}
+          onClick={({ key }) => key === 'logout' && onLogout?.()}
           items={[
             { key: 'logout', icon: <LogoutOutlined />, label: 'Logout' }
           ]}

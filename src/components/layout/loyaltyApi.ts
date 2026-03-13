@@ -1,24 +1,7 @@
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: 'http://localhost:8080/api',
-  withCredentials: true,
-});
-
-// إرفاق JWT في الطلبات المحمية (login_guide: Authorization: Bearer <token>)
-api.interceptors.request.use((config) => {
-  const token = typeof localStorage !== 'undefined' && localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-export interface ApiResult<T> {
-  code: number;
-  message: string;
-  data: T;
-}
+/**
+ * Loyalty API – uses shared request (utils/request) so Authorization is set automatically.
+ */
+import request from '../../utils/request';
 
 export interface LoyaltySummaryDto {
   username: string;
@@ -34,17 +17,24 @@ export interface LoyaltyTxDto {
   createdAt: string;
 }
 
+/** Response shape from backend Result<T> (request interceptor returns this). */
+interface ApiResult<T> {
+  code: number;
+  message: string;
+  data: T;
+}
+
 export const fetchLoyaltyBalance = async (): Promise<LoyaltySummaryDto> => {
-  const response = await api.get<ApiResult<LoyaltySummaryDto>>('/loyalty/me');
-  return response.data.data;
+  const res = await request.get<ApiResult<LoyaltySummaryDto>>('/api/loyalty/me');
+  return (res as ApiResult<LoyaltySummaryDto>).data;
 };
 
 /** @param limit between 1 and 50 (validated by backend) */
 export const fetchLoyaltyTransactions = async (
   limit: number = 50
 ): Promise<LoyaltyTxDto[]> => {
-  const response = await api.get<ApiResult<LoyaltyTxDto[]>>(
-    `/loyalty/me/transactions?limit=${Math.min(50, Math.max(1, limit))}`
+  const res = await request.get<ApiResult<LoyaltyTxDto[]>>(
+    `/api/loyalty/me/transactions?limit=${Math.min(50, Math.max(1, limit))}`
   );
-  return response.data.data;
+  return (res as ApiResult<LoyaltyTxDto[]>).data;
 };

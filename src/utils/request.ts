@@ -1,32 +1,49 @@
 import axios from 'axios';
 import { message } from 'antd';
 
-// Create an axios instance
+// In dev, use empty baseURL so Vite proxy can forward /api to backend
 const request = axios.create({
-  baseURL: 'http://localhost:8080', // Replace with your backend base URL
+  baseURL: import.meta.env.DEV ? '' : 'http://localhost:8080',
   timeout: 10000,
 });
+
+// Request interceptor: add JWT so Loyalty and other protected APIs get the token
+request.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    }
+    return config;
+  },
+  (e) => Promise.reject(e)
+);
 
 // Response interceptor
 request.interceptors.response.use(
   (response) => {
     const res = response.data;
 
-    // Check if the business code is 200
     if (res.code !== 200) {
-      // Pop up error message from the response data
       message.error(res.message || 'Unknown error occurred');
-      
-      // Reject the promise to stop the chain
       return Promise.reject(new Error(res.message || 'Unknown error occurred'));
     }
 
     return res;
   },
   (error) => {
-    // Handle network errors, timeouts, etc.
     console.error('Request failed:', error);
-    message.error(error.message || 'Network error');
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      message.error('Session expired. Please log in again.');
+      window.location.reload();
+      return Promise.reject(error);
+    }
+    const isNetworkError = !error.response && (error.code === 'ERR_NETWORK' || error.message === 'Network Error');
+    const msg = isNetworkError
+      ? 'Cannot reach server. Make sure the backend is running on http://localhost:8080'
+      : (error.response?.data?.message || error.message || 'Request failed');
+    message.error(msg);
     return Promise.reject(error);
   }
 );
