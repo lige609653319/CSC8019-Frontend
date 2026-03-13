@@ -23,10 +23,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       const tokenHead = data.tokenHead;
 
       if (token) {
-        // Store only the token; loyaltyApi interceptor adds "Bearer " in the header
-        localStorage.setItem('token', token);
+        const fullToken = tokenHead ? `${(tokenHead as string).trim()} ${token}` : token;
+        localStorage.setItem('token', fullToken);
         message.success('Login successful');
-        onLoginSuccess(token);
+        onLoginSuccess(fullToken);
       } else {
         message.error('Login failed: Invalid token');
       }
@@ -45,7 +45,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             width: 400,
             borderRadius: 16,
             boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-            overflow: 'hidden'
+            overflow: 'hidden',
           }}
           bodyStyle={{ padding: '40px 30px' }}
         >
@@ -58,7 +58,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               display: 'inline-flex',
               justifyContent: 'center',
               alignItems: 'center',
-              marginBottom: 16
+              marginBottom: 16,
             }}>
               <LoginOutlined style={{ fontSize: 32, color: '#1677ff' }} />
             </div>
@@ -105,7 +105,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   borderRadius: 8,
                   fontSize: 16,
                   fontWeight: 600,
-                  boxShadow: '0 4px 12px rgba(22, 119, 255, 0.3)'
+                  boxShadow: '0 4px 12px rgba(22, 119, 255, 0.3)',
                 }}
               >
                 Login

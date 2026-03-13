@@ -25,6 +25,24 @@ request.interceptors.response.use(
     const res = response.data;
 
     if (res.code !== 200) {
+      if (res.code === 401 || response.status === 401) {
+        const isLoginRequest = response.config.url?.includes('/api/auth/login');
+        const hadToken = !!localStorage.getItem('token');
+        localStorage.removeItem('token');
+        if (!isLoginRequest && hadToken) window.location.reload();
+        message.error(res.message || 'Session expired. Please log in again.');
+        return Promise.reject({
+          response: { status: 401, data: res },
+          message: res.message || 'Unauthorized',
+        });
+      }
+      if (res.code === 403 || response.status === 403) {
+        message.error(res.message || 'Access denied: No permission');
+        return Promise.reject({
+          response: { status: 403, data: res },
+          message: res.message || 'Forbidden',
+        });
+      }
       message.error(res.message || 'Unknown error occurred');
       return Promise.reject(new Error(res.message || 'Unknown error occurred'));
     }
@@ -32,18 +50,22 @@ request.interceptors.response.use(
     return res;
   },
   (error) => {
-    console.error('Request failed:', error);
     if (error.response?.status === 401) {
+      const isLoginRequest = error.config?.url?.includes('/api/auth/login');
+      const hadToken = !!localStorage.getItem('token');
       localStorage.removeItem('token');
-      message.error('Session expired. Please log in again.');
-      window.location.reload();
-      return Promise.reject(error);
+      if (!isLoginRequest && hadToken) window.location.reload();
+      message.error(error.response?.data?.message || 'Session expired. Please log in again.');
+    } else if (error.response?.status === 403) {
+      message.error(error.response?.data?.message || 'Access denied: No permission');
+    } else {
+      const isNetworkError = !error.response && (error.code === 'ERR_NETWORK' || error.message === 'Network Error');
+      const msg = isNetworkError
+        ? 'Cannot reach server. Make sure the backend is running on http://localhost:8080'
+        : (error.response?.data?.message || error.message || 'Request failed');
+      message.error(msg);
     }
-    const isNetworkError = !error.response && (error.code === 'ERR_NETWORK' || error.message === 'Network Error');
-    const msg = isNetworkError
-      ? 'Cannot reach server. Make sure the backend is running on http://localhost:8080'
-      : (error.response?.data?.message || error.message || 'Request failed');
-    message.error(msg);
+    console.error('Request failed:', error);
     return Promise.reject(error);
   }
 );

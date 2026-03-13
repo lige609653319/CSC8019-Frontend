@@ -9,6 +9,7 @@ import StorePage from './components/store/StorePage';
 import LoginPage from './components/auth/LoginPage';
 import LoyaltyBalancePage from './components/layout/LoyaltyBalancePage';
 import RedemptionHistoryPage from './components/layout/RedemptionHistoryPage';
+import request from './utils/request';
 
 const { Sider, Content } = Layout;
 
@@ -24,23 +25,43 @@ const VIEW_KEYS = {
   SETTINGS: 'settings',
 } as const;
 
+interface UserProfile {
+  username: string;
+  id?: string;
+  email?: string;
+  icon?: string;
+}
+
 function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
   const [currentView, setCurrentView] = useState<string>(VIEW_KEYS.DASHBOARD);
+  const [user, setUser] = useState<UserProfile | null>(null);
+
+  const fetchUserInfo = async () => {
+    try {
+      const res: any = await request.get('/api/auth/me');
+      setUser(res?.data ?? res ?? null);
+    } catch {
+      setUser(null);
+    }
+  };
 
   useEffect(() => {
     const stored = localStorage.getItem('token');
     setToken(stored);
+    if (stored) fetchUserInfo();
   }, []);
 
   const handleLoginSuccess = (newToken: string) => {
     setToken(newToken);
     setCurrentView(VIEW_KEYS.LOYALTY_BALANCE);
+    fetchUserInfo();
   };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     setToken(null);
+    setUser(null);
     setCurrentView(VIEW_KEYS.DASHBOARD);
   };
 
@@ -124,7 +145,7 @@ function App() {
           />
         </Sider>
         <Layout style={{ marginLeft: 260 }}>
-          <Header />
+          <Header onLogout={handleLogout} user={user} />
           <Content style={{ overflow: 'initial' }}>
             {renderContent()}
           </Content>
