@@ -39,6 +39,14 @@ The production-ready files will be generated in the `dist` directory.
 - `src/App.tsx`: Main application shell, theme configuration, and navigation logic.
 - `src/index.css`: Global base styles and Ant Design theme overrides.
 
+## API requests (authentication)
+
+Login and authentication are enabled. For any HTTP request to the backend:
+
+- **Use the shared client**: `import request from '@/utils/request';` (or the correct relative path, e.g. `'../../utils/request'`).
+- Use `request.get()`, `request.post()`, etc. Do not create a new axios instance for API calls.
+- The **Authorization** (JWT) header is already set in `src/utils/request.ts` when a token exists in `localStorage`, so you do not need to add it manually.
+
 ## Tech Stack
 - **React 18**
 - **TypeScript**

@@ -1,32 +1,71 @@
 import axios from 'axios';
 import { message } from 'antd';
 
-// Create an axios instance
+// In dev, use empty baseURL so Vite proxy can forward /api to backend
 const request = axios.create({
-  baseURL: 'http://localhost:8080', // Replace with your backend base URL
+  baseURL: import.meta.env.DEV ? '' : 'http://localhost:8080',
   timeout: 10000,
 });
+
+// Request interceptor: add JWT so Loyalty and other protected APIs get the token
+request.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    }
+    return config;
+  },
+  (e) => Promise.reject(e)
+);
 
 // Response interceptor
 request.interceptors.response.use(
   (response) => {
     const res = response.data;
 
-    // Check if the business code is 200
     if (res.code !== 200) {
-      // Pop up error message from the response data
+      if (res.code === 401 || response.status === 401) {
+        const isLoginRequest = response.config.url?.includes('/api/auth/login');
+        const hadToken = !!localStorage.getItem('token');
+        localStorage.removeItem('token');
+        if (!isLoginRequest && hadToken) window.location.reload();
+        message.error(res.message || 'Session expired. Please log in again.');
+        return Promise.reject({
+          response: { status: 401, data: res },
+          message: res.message || 'Unauthorized',
+        });
+      }
+      if (res.code === 403 || response.status === 403) {
+        message.error(res.message || 'Access denied: No permission');
+        return Promise.reject({
+          response: { status: 403, data: res },
+          message: res.message || 'Forbidden',
+        });
+      }
       message.error(res.message || 'Unknown error occurred');
-      
-      // Reject the promise to stop the chain
       return Promise.reject(new Error(res.message || 'Unknown error occurred'));
     }
 
     return res;
   },
   (error) => {
-    // Handle network errors, timeouts, etc.
+    if (error.response?.status === 401) {
+      const isLoginRequest = error.config?.url?.includes('/api/auth/login');
+      const hadToken = !!localStorage.getItem('token');
+      localStorage.removeItem('token');
+      if (!isLoginRequest && hadToken) window.location.reload();
+      message.error(error.response?.data?.message || 'Session expired. Please log in again.');
+    } else if (error.response?.status === 403) {
+      message.error(error.response?.data?.message || 'Access denied: No permission');
+    } else {
+      const isNetworkError = !error.response && (error.code === 'ERR_NETWORK' || error.message === 'Network Error');
+      const msg = isNetworkError
+        ? 'Cannot reach server. Make sure the backend is running on http://localhost:8080'
+        : (error.response?.data?.message || error.message || 'Request failed');
+      message.error(msg);
+    }
     console.error('Request failed:', error);
-    message.error(error.message || 'Network error');
     return Promise.reject(error);
   }
 );
