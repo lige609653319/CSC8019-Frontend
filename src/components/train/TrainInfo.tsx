@@ -29,7 +29,8 @@ const TrainInfo: React.FC = () => {
         onTime: 0,
         delayed: 0,
         cancelled: 0,
-        early: 0
+        early: 0,
+        arrived: 0
     });
 
 
@@ -38,23 +39,30 @@ const TrainInfo: React.FC = () => {
         setError(null);
 
         try {
-            const data = await fetchUpcomingTrains(120); // Get trains for next 2 hours
+
+            console.log('Fetching real train data...');
+            const data = await fetchUpcomingTrains();
+
+            console.log('Real data received:', data);
+            console.log('Number of trains:', data.length);
+
             setTrains(data);
             setFilteredTrains(data);
             setLastUpdated(new Date().toLocaleTimeString());
 
-
+            // Update statistics
             const total = data.length;
-            const onTime = data.filter(t => t.status === 'ON_TIME').length;
-            const delayed = data.filter(t => t.status === 'DELAYED').length;
+            const arrived = data.filter(t => t.actualArrivalTime).length;
+            const onTime = data.filter(t => t.status === 'ON_TIME' && !t.actualArrivalTime).length;
+            const delayed = data.filter(t => t.status === 'DELAYED' && !t.actualArrivalTime).length;
             const cancelled = data.filter(t => t.status === 'CANCELLED').length;
-            const early = data.filter(t => t.status === 'EARLY').length;
+            const early = data.filter(t => t.status === 'EARLY' && !t.actualArrivalTime).length;
 
-            setStats({ total, onTime, delayed, cancelled, early });
+            setStats({ total, onTime, delayed, cancelled, early, arrived });
         } catch (err) {
+            console.error('Error fetching trains:', err);
             setError('Failed to fetch train data. Please check your connection.');
             message.error('Failed to fetch data');
-            console.error('Error:', err);
         } finally {
             setLoading(false);
         }
@@ -85,14 +93,21 @@ const TrainInfo: React.FC = () => {
 
 
         if (statusFilter !== 'all') {
-            filtered = filtered.filter(train => train.status === statusFilter);
+            if (statusFilter === 'ARRIVED') {
+                filtered = filtered.filter(train => train.actualArrivalTime);
+            } else {
+                filtered = filtered.filter(train => train.status === statusFilter && !train.actualArrivalTime);
+            }
         }
 
         setFilteredTrains(filtered);
     }, [searchText, statusFilter, trains]);
 
 
-    const getStatusTag = (status: string, delayMinutes: number | null) => {
+    const getStatusTag = (status: string, delayMinutes: number | null, actualArrivalTime: string | null) => {
+        if (actualArrivalTime) {
+            return <Tag icon={<CheckCircleOutlined />} color="processing">Arrived</Tag>;
+        }
         switch (status) {
             case 'ON_TIME':
                 return <Tag icon={<CheckCircleOutlined />} color="success">On Time</Tag>;
@@ -121,7 +136,7 @@ const TrainInfo: React.FC = () => {
             key: 'route',
             render: (_, record) => (
                 <Space direction="vertical" size="small">
-                    <Text>{record.originStation || '?'} → {record.destinationStation || '?'}</Text>
+                    <Text>{record.originStation || 'Unknown'} → {record.destinationStation || 'Unknown'}</Text>
                     <Text type="secondary" style={{ fontSize: '12px' }}>
                         Current: {record.currentStation || 'Unknown'}
                     </Text>
@@ -169,14 +184,18 @@ const TrainInfo: React.FC = () => {
         {
             title: 'Status',
             key: 'status',
-            render: (_, record) => getStatusTag(record.status, record.delayMinutes),
+            render: (_, record) => getStatusTag(record.status, record.delayMinutes, record.actualArrivalTime),
             filters: [
                 { text: 'On Time', value: 'ON_TIME' },
                 { text: 'Delayed', value: 'DELAYED' },
                 { text: 'Cancelled', value: 'CANCELLED' },
                 { text: 'Early', value: 'EARLY' },
+                { text: 'Arrived', value: 'ARRIVED' },
             ],
-            onFilter: (value, record) => record.status === value,
+            onFilter: (value, record) => {
+                if (value === 'ARRIVED') return !!record.actualArrivalTime;
+                return record.status === value && !record.actualArrivalTime;
+            },
         },
         {
             title: 'Platform',
@@ -195,6 +214,7 @@ const TrainInfo: React.FC = () => {
                         message.info(`Order coffee for train ${record.trainId}`);
                         // Navigate to order page
                     }}
+                    disabled={!!record.actualArrivalTime}
                 >
                     Order Coffee
                 </Button>
@@ -241,6 +261,7 @@ const TrainInfo: React.FC = () => {
                             <Option value="DELAYED">Delayed</Option>
                             <Option value="CANCELLED">Cancelled</Option>
                             <Option value="EARLY">Early</Option>
+                            <Option value="ARRIVED">Arrived</Option>
                         </Select>
                     </Space>
                 </Col>
