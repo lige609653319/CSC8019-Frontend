@@ -1,0 +1,41 @@
+.container {
+    padding: 24px;
+    background: #f0f2f5;
+    min-height: calc(100vh - 64px);
+}
+
+
+@media (max-width: 768px) {
+    .container {
+        padding: 12px;
+    }
+
+    :global(.ant-statistic-title) {
+        font-size: 12px;
+    }
+
+    :global(.ant-statistic-content) {
+        font-size: 18px;
+    }
+
+    :global(.ant-table) {
+        font-size: 12px;
+    }
+}
+
+
+:global(.ant-table-row) {
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+:global(.ant-table-row:hover) {
+    background-color: #e6f7ff !important;
+}
+
+
+:global(.ant-tag) {
+    min-width: 70px;
+    text-align: center;
+    padding: 4px 8px;
+}
