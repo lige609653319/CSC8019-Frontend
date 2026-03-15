@@ -23,7 +23,6 @@ const TrainInfo: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [lastUpdated, setLastUpdated] = useState<string>('');
 
-
     const [stats, setStats] = useState({
         total: 0,
         onTime: 0,
@@ -33,24 +32,19 @@ const TrainInfo: React.FC = () => {
         arrived: 0
     });
 
-
     const fetchTrains = async () => {
         setLoading(true);
         setError(null);
 
         try {
-
             console.log('Fetching real train data...');
             const data = await fetchUpcomingTrains();
-
-            console.log('Real data received:', data);
-            console.log('Number of trains:', data.length);
+            console.log('Real data received:', data.length);
 
             setTrains(data);
             setFilteredTrains(data);
             setLastUpdated(new Date().toLocaleTimeString());
 
-            // Update statistics
             const total = data.length;
             const arrived = data.filter(t => t.actualArrivalTime).length;
             const onTime = data.filter(t => t.status === 'ON_TIME' && !t.actualArrivalTime).length;
@@ -68,29 +62,21 @@ const TrainInfo: React.FC = () => {
         }
     };
 
-
     useEffect(() => {
         fetchTrains();
-
-
         const interval = setInterval(fetchTrains, 30000);
-
         return () => clearInterval(interval);
     }, []);
-
 
     useEffect(() => {
         let filtered = trains;
 
-
         if (searchText) {
             filtered = filtered.filter(train =>
                 train.trainId.toLowerCase().includes(searchText.toLowerCase()) ||
-                (train.originStation?.toLowerCase() || '').includes(searchText.toLowerCase()) ||
-                (train.destinationStation?.toLowerCase() || '').includes(searchText.toLowerCase())
+                (train.currentStation?.toLowerCase() || '').includes(searchText.toLowerCase())
             );
         }
-
 
         if (statusFilter !== 'all') {
             if (statusFilter === 'ARRIVED') {
@@ -102,7 +88,6 @@ const TrainInfo: React.FC = () => {
 
         setFilteredTrains(filtered);
     }, [searchText, statusFilter, trains]);
-
 
     const getStatusTag = (status: string, delayMinutes: number | null, actualArrivalTime: string | null) => {
         if (actualArrivalTime) {
@@ -122,26 +107,19 @@ const TrainInfo: React.FC = () => {
         }
     };
 
-
     const columns: ColumnsType<TrainData> = [
         {
             title: 'Train ID',
             dataIndex: 'trainId',
             key: 'trainId',
-            render: (text) => <Text strong style={{ fontSize: '16px' }}>{text}</Text>,
+            render: (text) => <Text strong>{text}</Text>,
             sorter: (a, b) => a.trainId.localeCompare(b.trainId),
         },
         {
-            title: 'Route',
-            key: 'route',
-            render: (_, record) => (
-                <Space direction="vertical" size="small">
-                    <Text>{record.originStation || 'Unknown'} → {record.destinationStation || 'Unknown'}</Text>
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                        Current: {record.currentStation || 'Unknown'}
-                    </Text>
-                </Space>
-            ),
+            title: 'Current Station',
+            dataIndex: 'currentStation',
+            key: 'currentStation',
+            render: (text) => <Text>{text || 'Unknown'}</Text>,
         },
         {
             title: 'Arrival Time',
@@ -212,7 +190,6 @@ const TrainInfo: React.FC = () => {
                     size="small"
                     onClick={() => {
                         message.info(`Order coffee for train ${record.trainId}`);
-                        // Navigate to order page
                     }}
                     disabled={!!record.actualArrivalTime}
                 >
@@ -224,7 +201,6 @@ const TrainInfo: React.FC = () => {
 
     return (
         <div className={styles.container}>
-            {/* Title and refresh button */}
             <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
                 <Col>
                     <Title level={2}>🚂 Train Arrival Information</Title>
@@ -267,74 +243,40 @@ const TrainInfo: React.FC = () => {
                 </Col>
             </Row>
 
-            {/* Statistics cards */}
             <Row gutter={16} style={{ marginBottom: 24 }}>
                 <Col xs={12} sm={8} md={6}>
                     <Card size="small">
-                        <Statistic
-                            title="Total Trains"
-                            value={stats.total}
-                            valueStyle={{ color: '#1890ff', fontSize: '24px' }}
-                        />
+                        <Statistic title="Total Trains" value={stats.total} valueStyle={{ color: '#1890ff' }} />
                     </Card>
                 </Col>
                 <Col xs={12} sm={8} md={6}>
                     <Card size="small">
-                        <Statistic
-                            title="On Time"
-                            value={stats.onTime}
-                            valueStyle={{ color: '#52c41a', fontSize: '24px' }}
-                        />
+                        <Statistic title="On Time" value={stats.onTime} valueStyle={{ color: '#52c41a' }} />
                     </Card>
                 </Col>
                 <Col xs={12} sm={8} md={6}>
                     <Card size="small">
-                        <Statistic
-                            title="Delayed"
-                            value={stats.delayed}
-                            valueStyle={{ color: '#faad14', fontSize: '24px' }}
-                        />
+                        <Statistic title="Delayed" value={stats.delayed} valueStyle={{ color: '#faad14' }} />
                     </Card>
                 </Col>
                 <Col xs={12} sm={8} md={6}>
                     <Card size="small">
-                        <Statistic
-                            title="Cancelled"
-                            value={stats.cancelled}
-                            valueStyle={{ color: '#f5222d', fontSize: '24px' }}
-                        />
+                        <Statistic title="Cancelled" value={stats.cancelled} valueStyle={{ color: '#f5222d' }} />
                     </Card>
                 </Col>
             </Row>
 
-            {/* Error message */}
             {error && (
-                <Alert
-                    message="Error"
-                    description={error}
-                    type="error"
-                    showIcon
-                    style={{ marginBottom: 16 }}
-                    closable
-                    onClose={() => setError(null)}
-                />
+                <Alert message="Error" description={error} type="error" showIcon style={{ marginBottom: 16 }} closable onClose={() => setError(null)} />
             )}
 
-            {/* Train table */}
-            <Card
-                title={`Upcoming Trains (Next 2 Hours)`}
-                extra={<Text type="secondary">Total {filteredTrains.length}</Text>}
-            >
+            <Card title={`Upcoming Trains (Next 2 Hours)`} extra={<Text type="secondary">Total {filteredTrains.length}</Text>}>
                 <Table
                     columns={columns}
                     dataSource={filteredTrains}
                     rowKey="id"
                     loading={loading}
-                    pagination={{
-                        pageSize: 10,
-                        showSizeChanger: true,
-                        showTotal: (total) => `Total ${total} trains`
-                    }}
+                    pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `Total ${total} trains` }}
                     scroll={{ x: 800 }}
                     size="middle"
                 />
