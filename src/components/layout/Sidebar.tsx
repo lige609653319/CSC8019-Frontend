@@ -8,27 +8,32 @@ import {
   ShoppingCartOutlined,
   ShopOutlined,
   AppstoreOutlined
+  GiftOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 
 interface SidebarProps {
   currentView: string;
   onViewChange: (view: string) => void;
+  onLogout?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onLogout }) => {
   const menuItems = [
     { key: 'dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
     { key: 'menu', icon: <AppstoreOutlined />, label: 'Menu' },
     { key: 'order', icon: <ShoppingCartOutlined />, label: 'Order' },
     { key: 'user', icon: <UserOutlined />, label: 'User' },
     { key: 'store', icon: <ShopOutlined />, label: 'Store' },
+    { key: 'loyalty-balance', icon: <GiftOutlined />, label: 'Loyalty Balance' },
+    { key: 'loyalty-history', icon: <HistoryOutlined />, label: 'Redemption History' },
     { key: 'analytics', icon: <BarChartOutlined />, label: 'Analytics' },
     { key: 'settings', icon: <SettingOutlined />, label: 'Settings' },
   ];
 
   return (
     <div style={styles.sidebarInner}>
-      <div style={styles.logo}>
+      <div style={styles.alogo}>
         <h2 style={styles.logoText}>AdminPanel</h2>
       </div>
       <Menu
@@ -43,6 +48,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange }) => {
           mode="inline"
           selectable={false}
           style={styles.menu}
+          onClick={({ key }) => key === 'logout' && onLogout?.()}
           items={[
             { key: 'logout', icon: <LogoutOutlined />, label: 'Logout' }
           ]}
