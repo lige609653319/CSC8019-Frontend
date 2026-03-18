@@ -7,7 +7,7 @@ import {
   LogoutOutlined,
   ShoppingCartOutlined,
   ShopOutlined,
-  AppstoreOutlined
+  AppstoreOutlined,
   GiftOutlined,
   HistoryOutlined,
 } from '@ant-design/icons';
