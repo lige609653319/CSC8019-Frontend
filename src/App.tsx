@@ -6,14 +6,11 @@ import DashboardPage from './components/dashboard/DashboardPage';
 import UserPage from './components/user/UserPage';
 import OrderPage from './components/order/OrderPage';
 import StorePage from './components/store/StorePage';
-<<<<<<< HEAD
 import MenuPage from './components/menu/MenuPage';
-=======
 import LoginPage from './components/auth/LoginPage';
 import LoyaltyBalancePage from './components/layout/LoyaltyBalancePage';
 import RedemptionHistoryPage from './components/layout/RedemptionHistoryPage';
 import request from './utils/request';
->>>>>>> 51d0f53909a9179b8e2eb7b82951606ddd699a1f
 
 const { Sider, Content } = Layout;
 
@@ -95,14 +92,11 @@ function App() {
         return <OrderPage />;
       case VIEW_KEYS.STORE:
         return <StorePage />;
-<<<<<<< HEAD
       case 'menu':
         return <MenuPage />;
-=======
       case VIEW_KEYS.ANALYTICS:
       case VIEW_KEYS.SETTINGS:
         return <DashboardPage />;
->>>>>>> 51d0f53909a9179b8e2eb7b82951606ddd699a1f
       default:
         return <DashboardPage />;
     }
