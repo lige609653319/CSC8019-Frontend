@@ -5,8 +5,9 @@ import {
   InputNumber, Select, Switch, Row, Col, Divider
 } from 'antd';
 import { 
-  CoffeeOutlined, DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined, ShopOutlined
+  CoffeeOutlined, DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined
 } from '@ant-design/icons';
+import request from '../../utils/request';
 
 const { Title } = Typography;
 
@@ -28,61 +29,52 @@ interface MenuSku {
 }
 
 const MenuPage = () => {
-  // State for data and loading
   const [menuList, setMenuList] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   
-  // Default store list if backend fails
-  const [storeList, setStoreList] = useState<any[]>([
-    { id: 1, name: "Whistlestop Coffee Hut Updated" },
-    { id: 2, name: "Metro Coffee Express" },
-    { id: 3, name: "City Beans" },
-    { id: 4, name: "Harbour Brew Point" },
-    { id: 5, name: "Map Valid Cafe" },
-    { id: 6, name: "Contact Test Cafe Updated" }
-  ]);
+  // Dynamic store list from backend
+  const [storeList, setStoreList] = useState<any[]>([]);
   
-  const [searchForm] = Form.useForm(); // Form for search bar
-  const [form] = Form.useForm();       // Form for Add/Edit modal
+  const [searchForm] = Form.useForm();
+  const [form] = Form.useForm();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
 
-  // Get all stores from backend
+  // get store list
   const fetchStores = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/store/list'); 
-      const res = await response.json();
-      if (res.code === 200 && Array.isArray(res.data) && res.data.length > 0) {
+      const res: any = await request.get('/api/store/list'); 
+      if (res.code === 200 && Array.isArray(res.data)) {
         setStoreList(res.data);
+       // Auto-select the first store if no store is currently selected 
+        if (res.data.length > 0 && !searchForm.getFieldValue('storeId')) {
+          searchForm.setFieldsValue({ storeId: res.data[0].id });
+        }
       }
     } catch (error) {
-      console.log("Use default store list");
+      console.error("Failed to fetch stores:", error);
+      message.error("Failed to load store list");
     }
   };
 
-  // Get menu data with search filters
+  // get menu data
   const fetchMenuData = async () => {
+   // Prevent API calls if no store is selected
+    const currentStoreId = searchForm.getFieldValue('storeId');
+    if (!currentStoreId) return;
+
     setLoading(true);
     try {
       const values = searchForm.getFieldsValue();
-      const queryParams: any = {
-        storeId: values.storeId || 1,
-        name: values.name,
-        category: values.category
-      };
-      
-      // Remove empty parameters
-      Object.keys(queryParams).forEach(key => {
-        if (!queryParams[key]) delete queryParams[key];
+      const res: any = await request.get('/api/menu/search', {
+        params: {
+          storeId: values.storeId,
+          name: values.name,
+          category: values.category
+        }
       });
-
-      const query = new URLSearchParams(queryParams).toString();
-      const response = await fetch(`http://localhost:8080/api/menu/search?${query}`); 
-      if (response.ok) {
-        const res = await response.json(); 
-        setMenuList(res.data || []);
-      }
+      setMenuList(res.data || []);
     } catch (error) {
       message.error('Load menu error');
     } finally {
@@ -90,60 +82,45 @@ const MenuPage = () => {
     }
   };
 
-  // Run when page starts
   useEffect(() => { 
-    searchForm.setFieldsValue({ storeId: 1 });
     const init = async () => {
+      // Fetch stores first, then fetch menu data
       await fetchStores();
       fetchMenuData();
     };
     init();
   }, []);
 
-  // Delete one item
+  // Delete
   const handleDelete = async (id: number) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/menu/${id}`, { method: 'DELETE' });
-      if (response.ok) {
-        message.success('Delete success');
-        fetchMenuData();
-      }
+      await request.delete(`/api/menu/${id}`);
+      message.success('Delete success');
+      fetchMenuData();
     } catch (error) { message.error('Delete error'); }
   };
 
-  // Save data (Add or Update)
+  // Add or Update
   const handleFormSubmit = async (values: any) => {
     const isEditing = !!editingItem;
     const currentStoreId = searchForm.getFieldValue('storeId');
 
     try {
       if (isEditing && editingItem) {
-        // Update Menu name and category
-        await fetch(`http://localhost:8080/api/menu/${editingItem.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: values.name, category: values.category }),
+        await request.patch(`/api/menu/${editingItem.id}`, { 
+          name: values.name, 
+          category: values.category 
         });
 
-        // Update each SKU price and stock
         for (const sku of values.skus) {
           if (sku.id) {
-            await fetch(`http://localhost:8080/api/menu/sku/${sku.id}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(sku),
-            });
+            await request.patch(`/api/menu/sku/${sku.id}`, sku);
           }
         }
         message.success('Update success');
       } else {
-        // Create new menu
         const payload = { ...values, store: { id: currentStoreId } };
-        await fetch(`http://localhost:8080/api/menu/create`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+        await request.post(`/api/menu/create`, payload);
         message.success('Create success');
       }
 
@@ -152,9 +129,8 @@ const MenuPage = () => {
     } catch (error) { message.error('Save error'); }
   };
 
-  // Table columns definition
   const columns = [
-    { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
+    // { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
     { title: 'Name', dataIndex: 'name', key: 'name' },
     { 
       title: 'Category', 
@@ -208,25 +184,25 @@ const MenuPage = () => {
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         <Title level={3}><CoffeeOutlined /> Menu Management</Title>
 
-        {/* Search section */}
         <Card size="small">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Form form={searchForm} layout="inline" onFinish={fetchMenuData}>
-              {/* Store select */}
-              <Form.Item name="storeId" label={<span><ShopOutlined /> Store</span>}>
-                <Select style={{ width: 280 }} onChange={() => fetchMenuData()}>
+              <Form.Item name="storeId" label={<span>Store</span>}>
+                <Select 
+                  style={{ width: 360 }} 
+                  onChange={() => fetchMenuData()}
+                  placeholder="Select a store"
+                >
                   {storeList.map(s => (
                     <Select.Option key={s.id} value={s.id}>{s.name}</Select.Option>
                   ))}
                 </Select>
               </Form.Item>
               
-              {/* Name search */}
               <Form.Item name="name" label="Name">
                 <Input placeholder="Search name" allowClear autoComplete="off" />
               </Form.Item>
               
-              {/* Category select */}
               <Form.Item name="category" label="Category">
                 <Select placeholder="All" allowClear style={{ width: 120 }}>
                   <Select.Option value="COFFEE">COFFEE</Select.Option>
@@ -241,6 +217,10 @@ const MenuPage = () => {
             </Form>
 
             <Button type="primary" icon={<PlusOutlined />} onClick={() => {
+              if (!searchForm.getFieldValue('storeId')) {
+                message.warning("Please select a store first");
+                return;
+              }
               setEditingItem(null);
               form.resetFields();
               form.setFieldsValue({ 
@@ -254,13 +234,11 @@ const MenuPage = () => {
           </div>
         </Card>
 
-        {/* Data table */}
         <Card bordered={false} styles={{ body: { padding: 0 } }}>
           <Table columns={columns} dataSource={menuList} loading={loading} rowKey="id" />
         </Card>
       </Space>
 
-      {/* Add and Edit Modal */}
       <Modal
         title={editingItem ? "Edit Product" : "Add Product"}
         open={isModalOpen}
@@ -294,7 +272,6 @@ const MenuPage = () => {
               <>
                 {fields.map(({ key, name, ...restField }) => (
                   <Card size="small" key={key} style={{ marginBottom: 12 }} title={form.getFieldValue(['skus', name, 'size'])}>
-                    {/* Hidden ID for update */}
                     <Form.Item {...restField} name={[name, 'id']} hidden><Input /></Form.Item>
                     <Form.Item {...restField} name={[name, 'size']} hidden><Input /></Form.Item>
 
