@@ -86,7 +86,7 @@ function App() {
                 return <DashboardPage />;
             case VIEW_KEYS.SETTINGS:
                 return <DashboardPage />;
-            // 🔴 添加 TRAINS 分支
+
             case VIEW_KEYS.TRAINS:
                 return <TrainInfo />;
             default:
